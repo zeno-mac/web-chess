@@ -1,3 +1,5 @@
+import Match from './engine.js';
+const game = new Match();
 const startingPosition = {
     11: 'wr', 21: 'wn', 31: 'wb',
     41: 'wq', 51: 'wk', 61: 'wb',
@@ -15,11 +17,19 @@ const pieces = ['wr', 'wn', 'wb', 'wq', 'wk', 'wp', 'br', 'bn', 'bb', 'bq', 'bk'
 const squarePrefix = "square-"
 let Selection = {
     selectedPiece: null,
+    startingPosition: null,
 }
 
 function showPreview() {
-    if (this.dataset.piece) {
-        this.classList.remove(this.dataset.piece)
+    let position = this.dataset.square
+    let piece = game.getPiece(position)
+    if (piece) {
+        this.classList.remove(piece)
+    }
+    if (game.isValid(Selection.selectedPiece, Selection.startingPosition, this.dataset.square)) {
+        this.style.setProperty('--outline-color', `green`)
+    } else {
+        this.style.setProperty('--outline-color', 'red')
     }
     this.style.setProperty('--preview-piece', `url('assets/pieces/${Selection.selectedPiece}.png')`);
     this.classList.add("preview")
@@ -27,13 +37,18 @@ function showPreview() {
 
 function hidePreview() {
     this.classList.remove("preview")
+    let position = this.dataset.square
+    let piece = game.getPiece(position)
     this.style.removeProperty('--preview-piece', `url('assets/pieces/${Selection.selectedPiece}.png')`);
-    if (this.dataset.piece) {
-        this.classList.add(this.dataset.piece)
+    if (piece && position != Selection.startingPosition) {
+        this.classList.add(piece )
     }
 }
 
 function makeMove() {
+    if (!game.isValid(Selection.selectedPiece, Selection.startingPosition, this.dataset.square)) { return }
+    let position = this.dataset.square
+    let piece = game.getPiece(position)
     this.classList.remove("preview")
     document.body.classList.remove('piece-selected')
     document.body.classList.add("selecting")
@@ -43,17 +58,27 @@ function makeMove() {
         e.removeEventListener('mouseleave', hidePreview)
         e.removeEventListener('click', makeMove)
     })
-    if (this.dataset.piece) { this.classList.remove(this.dataset.piece) }
+    if (piece) { this.classList.remove(piece) }
     this.classList.add(Selection.selectedPiece)
-    this.dataset.piece = Selection.selectedPiece
+    if (Selection.startingPosition != this.dataset.square) {
+        game.makeMove(Selection.selectedPiece, Selection.startingPosition, position)
+    }
+    document.querySelector('.selection-start').classList.remove("selection-start")
     Selection.selectedPiece = null;
+    Selection.startingPosition = null;
 }
 function selectSquare() {
-    let piece = this.dataset.piece;
+    let position = this.dataset.square
+    let piece = game.getPiece(position);
+    console.log(piece)
     if (!piece) { return; }
-    delete this.dataset.piece;
+    if (piece[0] != game.currentTurn) { return }
+
+    this.classList.add("selection-start")
+    Selection.startingPosition = position;
     Selection.selectedPiece = piece;
     this.classList.remove(piece)
+
     document.body.classList.remove("selecting")
     document.body.classList.add('piece-selected')
     document.querySelectorAll(".square").forEach((e) => {
@@ -81,7 +106,6 @@ function fillChessboard() {
             let notation = (file) * 10 + 8 - rank
             let piece = startingPosition[notation];
             if (piece) {
-                square.dataset.piece = piece;
                 square.classList.add(piece)
             }
             square.dataset.square = notation
@@ -95,12 +119,7 @@ function fillChessboard() {
 
 }
 
-function createTestImg() {
-    let img = document.createElement('img');
-    img.src = "assets/pieces/black-bishop.png"
-    return img;
 
-}
 
 function createPieceStyles() {
     const style = document.createElement('style');
